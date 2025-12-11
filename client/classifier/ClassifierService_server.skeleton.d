@@ -3,7 +3,7 @@
  * intend to customize it, you should edit a copy with another file name to 
  * avoid overwriting it when running the generator again.
  */
-module tutorial.Calculator_server;
+module classifier.ClassifierService_server;
 
 import std.stdio;
 import thrift.codegen.processor;
@@ -13,42 +13,31 @@ import thrift.server.transport.socket;
 import thrift.transport.buffered;
 import thrift.util.hashset;
 
-import tutorial.Calculator;
-import tutorial.tutorial_types;
+import classifier.ClassifierService;
+import classifier.classificator_types;
 
 
-class CalculatorHandler : Calculator {
+class ClassifierServiceHandler : ClassifierService {
   this() {
     // Your initialization goes here.
   }
 
-  void ping() {
+  void trainOnExample(double[] features, int result) {
     // Your implementation goes here.
-    writeln("ping called");
+    writeln("trainOnExample called");
   }
 
-  int add(int num1, int num2) {
+  double predictProba(double[] features) {
     // Your implementation goes here.
-    writeln("add called");
+    writeln("predictProba called");
     return typeof(return).init;
-  }
-
-  int calculate(int logid, ref const(Work) w) {
-    // Your implementation goes here.
-    writeln("calculate called");
-    return typeof(return).init;
-  }
-
-  void zip() {
-    // Your implementation goes here.
-    writeln("zip called");
   }
 
 }
 
 void main() {
   auto protocolFactory = new TBinaryProtocolFactory!();
-  auto processor = new TServiceProcessor!Calculator(new CalculatorHandler);
+  auto processor = new TServiceProcessor!ClassifierService(new ClassifierServiceHandler);
   auto serverTransport = new TServerSocket(9090);
   auto transportFactory = new TBufferedTransportFactory;
   auto server = new TSimpleServer(

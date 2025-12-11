@@ -4,20 +4,8 @@
  * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
  *  @generated
  */
-module share.SharedService;
+module classifier.classificator_types;
 
 import thrift.base;
 import thrift.codegen.base;
 import thrift.util.hashset;
-
-import share.shared_types;
-
-interface SharedService {
-  SharedStruct getStruct(int key);
-
-  enum methodMeta = [
-    TMethodMeta(`getStruct`, 
-      [TParamMeta(`key`, 1)]
-    )
-  ];
-}

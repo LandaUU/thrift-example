@@ -7,44 +7,47 @@ import thrift.protocol.binary;
 import thrift.transport.buffered;
 import thrift.transport.socket;
 
-import tutorial.Calculator;
-import tutorial.tutorial_types;
+import classifier.ClassifierService;
 
 void main()
 {
 	auto socket = new TSocket("localhost", 9090);
 	auto transport = new TBufferedTransport(socket);
 	auto protocol = tBinaryProtocol(transport);
-	auto client = tClient!Calculator(protocol);
+	auto client = tClient!ClassifierService(protocol);
 
 	transport.open();
 
-	client.ping();
-	writeln("ping()");
+	double[][] trainX = [
+		[0.0, 0.1],
+		[0.2, -0.1],
+		[-0.1, 0.2],
+		[1.0, 1.1],
+		[1.2, 0.9],
+		[0.8, 1.3],
+	];
 
-	int sum = client.add(1, 1);
-	writefln("1 + 1 = %s", sum);
+	int[] trainY = [0, 0, 0, 1, 1, 1];
 
-	auto work = Work();
-	work.op = Operation.DIVIDE;
-	work.num1 = 1;
-	work.num2 = 0;
-	try
+	writeln("Training...");
+	foreach (i, x; trainX)
 	{
-		int quotient = client.calculate(1, work);
-		writeln("Whoa we can divide by 0");
-	}
-	catch (InvalidOperation io)
-	{
-		writeln("Invalid operation: " ~ io.why);
+		client.trainOnExample(x, trainY[i]);
 	}
 
-	work.op = Operation.SUBTRACT;
-	work.num1 = 15;
-	work.num2 = 10;
-	int diff = client.calculate(1, work);
-	writefln("15 - 10 = %s", diff);
+	writeln("Testing predictions...");
 
-	auto log = client.getStruct(1);
-	writefln("Check log: %s", log.value);
+	double[][] testX = [
+		[0.0, 0.0],
+		[1.0, 1.0],
+		[0.5, 0.4],
+	];
+
+	foreach (x; testX)
+	{
+		double p = client.predictProba(x);
+		writeln("x=", x, " → P(y=1)=", p);
+	}
+
+	transport.close();
 }

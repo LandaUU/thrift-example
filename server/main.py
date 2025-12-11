@@ -1,71 +1,68 @@
-from tutorial import Calculator
-from tutorial.ttypes import InvalidOperation, Operation
-
-from shared.ttypes import SharedStruct
+# server.py
+import numpy as np
+from sklearn.linear_model import SGDClassifier
 
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 
-
-class CalculatorHandler(Calculator.Iface):
-    def __init__(self):
-        self.log = {}
-
-    def ping(self):
-        print("ping()")
-
-    def add(self, num1, num2):
-        print("add(%d,%d)" % (num1, num2))
-        return num1 + num2
-
-    def calculate(self, logid, w):
-        print("calculate(%d, %r)" % (logid, w))
-
-        if w.op == Operation.ADD:
-            val = w.num1 + w.num2
-        elif w.op == Operation.SUBTRACT:
-            val = w.num1 - w.num2
-        elif w.op == Operation.MULTIPLY:
-            val = w.num1 * w.num2
-        elif w.op == Operation.DIVIDE:
-            if w.num2 == 0:
-                raise InvalidOperation(w.op, "Cannot divide by 0")
-            val = w.num1 / w.num2
-        else:
-            raise InvalidOperation(w.op, "Invalid operation")
-
-        log = SharedStruct()
-        log.key = logid
-        log.value = "%d" % (val)
-        self.log[logid] = log
-
-        return val
-
-    def getStruct(self, key):
-        print("getStruct(%d)" % (key))
-        return self.log[key]
-
-    def zip(self):
-        print("zip()")
+from classifier import ClassifierService
 
 
-if __name__ == "__main__":
-    handler = CalculatorHandler()
-    processor = Calculator.Processor(handler)
-    transport = TSocket.TServerSocket(host="127.0.0.1", port=9090)
+class ClassifierHandler(ClassifierService.Iface):
+    """
+    Онлайн-классификатор: SGDClassifier (логистическая регрессия)
+    с partial_fit шагом при каждом запросе trainOnExample.
+    """
+
+    def __init__(self, n_features: int):
+        self.n_features = n_features
+
+        self.model = SGDClassifier(
+            loss="log_loss", learning_rate="optimal", penalty="l2"
+        )
+
+        self.is_initialized = False
+
+    def _ensure_init(self):
+        if not self.is_initialized:
+            X0 = np.zeros((1, self.n_features))
+            y0 = np.array([0])
+            self.model.partial_fit(X0, y0, classes=np.array([0, 1]))
+            self.is_initialized = True
+
+    def trainOnExample(self, features, result):
+        self._ensure_init()
+
+        X = np.array([features], dtype=float)
+        y_arr = np.array([result], dtype=int)
+
+        self.model.partial_fit(X, y_arr)
+
+    def predictProba(self, features) -> float:
+        self._ensure_init()
+        X = np.array([features], dtype=float)
+
+        p = self.model.predict_proba(X)[0][1]
+        return float(p)
+
+
+def main():
+    n_features = 2
+
+    handler = ClassifierHandler(n_features)
+    processor = ClassifierService.Processor(handler)
+
+    transport = TSocket.TServerSocket(host="0.0.0.0", port=9090)
     tfactory = TTransport.TBufferedTransportFactory()
     pfactory = TBinaryProtocol.TBinaryProtocolFactory()
 
     server = TServer.TSimpleServer(processor, transport, tfactory, pfactory)
 
-    # You could do one of these for a multithreaded server
-    # server = TServer.TThreadedServer(
-    #     processor, transport, tfactory, pfactory)
-    # server = TServer.TThreadPoolServer(
-    #     processor, transport, tfactory, pfactory)
-
-    print("Starting the server...")
+    print("Starting Python sklearn ClassifierService on port 9090...")
     server.serve()
-    print("done.")
+
+
+if __name__ == "__main__":
+    main()
